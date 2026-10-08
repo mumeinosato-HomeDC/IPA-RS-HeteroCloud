@@ -80,6 +80,10 @@ spec:
             - --vpc-endpoint={{ .Values.worker.vpcEndpoint }}
             - --vpc-audience={{ .Values.worker.vpcAudience }}
             {{- end }}
+            {{- if .Values.worker.vmEndpoint }}
+            - --vm-endpoint={{ .Values.worker.vmEndpoint }}
+            - --vm-audience={{ .Values.worker.vmAudience }}
+            {{- end }}
             - --issuer={{ .Values.worker.providerIssuer }}
             - --flow-audience={{ .Values.worker.flowAudience }}
             - --flash-audience={{ .Values.worker.flashAudience }}

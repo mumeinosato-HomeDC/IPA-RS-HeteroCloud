@@ -73,6 +73,9 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: status.hostIP
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           args:
             {{- if .Values.hostNetwork }}
             - --listen=$(HOST_IP):8443
@@ -89,6 +92,9 @@ spec:
             - --flash-internal-endpoint={{ required "flashExec.endpoint is required" .Values.flashExec.endpoint }}
             {{- if .Values.worker.vpcEndpoint }}
             - --vpc-endpoint={{ .Values.worker.vpcEndpoint }}
+            {{- end }}
+            {{- if .Values.worker.vmEndpoint }}
+            - --vm-endpoint={{ .Values.worker.vmEndpoint }}
             {{- end }}
             - --syouyu-internal-endpoint={{ required "syouyu.internalEndpoint is required" .Values.syouyu.internalEndpoint }}
             - --syouyu-access-secret-file=/var/run/secrets/syouyu-access/hmac-secret
@@ -212,6 +218,9 @@ spec:
             {{- end }}
             - name: tmp
               mountPath: /tmp
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
       volumes:
         {{- if .Values.workloadIdentity.enabled }}
         - name: heterocloud-kubernetes
@@ -304,6 +313,9 @@ spec:
         - name: tmp
           emptyDir:
             sizeLimit: 64Mi
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}

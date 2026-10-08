@@ -370,6 +370,7 @@ pub(crate) enum ServiceKind {
     Flow,
     Flash,
     Vpc,
+    Vm,
     Syouyu,
 }
 
@@ -379,6 +380,7 @@ impl ServiceKind {
             Self::Flow => "realtime/services",
             Self::Flash => "flash/services",
             Self::Vpc => "vpc/networks",
+            Self::Vm => "vm/instances",
             Self::Syouyu => "syouyu/buckets",
         };
         format!("api/v1/organizations/{organization_id}/{suffix}")
@@ -389,6 +391,7 @@ impl ServiceKind {
             Self::Flow => "flow",
             Self::Flash => "flash",
             Self::Vpc => "vpc",
+            Self::Vm => "vm",
             Self::Syouyu => "syouyu",
         }
     }
@@ -781,7 +784,9 @@ impl ApiClient {
     ) -> Result<ManagedService, CliError> {
         let method = match kind {
             ServiceKind::Flow => Method::PATCH,
-            ServiceKind::Flash | ServiceKind::Syouyu | ServiceKind::Vpc => Method::PUT,
+            ServiceKind::Flash | ServiceKind::Syouyu | ServiceKind::Vpc | ServiceKind::Vm => {
+                Method::PUT
+            }
         };
         let value = self
             .send_json(method, self.service_url(kind, id)?, Some(manifest))

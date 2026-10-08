@@ -141,6 +141,7 @@ async fn flash_stop_start_is_scoped_idempotent_and_preserves_configuration()
         flow_client: reqwest::Client::builder().no_proxy().build()?,
         flash_provider: None,
         vpc_provider: None,
+        vm_provider: None,
         syouyu_provider: None,
         registry: None,
         registration_limiter: Arc::new(Semaphore::new(2)),

@@ -53,6 +53,17 @@ struct Config {
     )]
     vpc_audience: String,
 
+    /// Tadokoro (Proxmox VE VM provider). VM events fail until it is configured.
+    #[arg(long, env = "HETEROCLOUD_VM_ENDPOINT")]
+    vm_endpoint: Option<Url>,
+
+    #[arg(
+        long,
+        env = "HETEROCLOUD_VM_AUDIENCE",
+        default_value = "heterocloud-vm"
+    )]
+    vm_audience: String,
+
     #[arg(
         long,
         env = "HETEROCLOUD_PROVIDER_ISSUER",
@@ -151,6 +162,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 ProviderSigner::from_ed25519_pem(
                     &config.issuer,
                     &config.vpc_audience,
+                    &config.key_id,
+                    &signing_key,
+                )
+                .map(|signer| ProviderTarget { endpoint, signer })
+            })
+            .transpose()?,
+        vm: config
+            .vm_endpoint
+            .clone()
+            .map(|endpoint| {
+                ProviderSigner::from_ed25519_pem(
+                    &config.issuer,
+                    &config.vm_audience,
                     &config.key_id,
                     &signing_key,
                 )
@@ -559,6 +583,7 @@ struct ProviderTargets {
     flash: ProviderTarget,
     syouyu: ProviderTarget,
     vpc: Option<ProviderTarget>,
+    vm: Option<ProviderTarget>,
 }
 
 impl ProviderTargets {
@@ -569,6 +594,9 @@ impl ProviderTargets {
             "syouyu" => Ok(&self.syouyu),
             "vpc" => self.vpc.as_ref().ok_or_else(|| {
                 WorkerError::UnsupportedProvider("vpc endpoint is not configured".into())
+            }),
+            "vm" => self.vm.as_ref().ok_or_else(|| {
+                WorkerError::UnsupportedProvider("vm endpoint is not configured".into())
             }),
             other => Err(WorkerError::UnsupportedProvider(other.to_owned())),
         }
@@ -786,6 +814,7 @@ MC4CAQAwBQYDK2VwBCIEIG45L/crBYvUcHKXo1ZbNr3YBSD3wPhsGq7IKyuU2+ei\n\
     -> Result<(), Box<dyn std::error::Error>> {
         let targets = ProviderTargets {
             vpc: None,
+            vm: None,
             flow: ProviderTarget {
                 endpoint: Url::parse("http://flow.example.test/")?,
                 signer: ProviderSigner::from_ed25519_pem(
@@ -850,6 +879,53 @@ MC4CAQAwBQYDK2VwBCIEIG45L/crBYvUcHKXo1ZbNr3YBSD3wPhsGq7IKyuU2+ei\n\
             targets.target("unknown"),
             Err(WorkerError::UnsupportedProvider(provider)) if provider == "unknown"
         ));
+        Ok(())
+    }
+
+    #[test]
+    fn vm_events_need_a_configured_endpoint_and_use_the_vm_audience()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let signer = || {
+            ProviderSigner::from_ed25519_pem(
+                "heterocloud",
+                "heterocloud-vm",
+                "test-key",
+                TEST_ED25519_PRIVATE_KEY,
+            )
+        };
+        let target = |name: &str| -> Result<ProviderTarget, Box<dyn std::error::Error>> {
+            Ok(ProviderTarget {
+                endpoint: Url::parse(&format!("http://{name}.example.test/"))?,
+                signer: signer()?,
+            })
+        };
+        let mut targets = ProviderTargets {
+            flow: target("flow")?,
+            flash: target("flash")?,
+            syouyu: target("syouyu")?,
+            vpc: None,
+            vm: None,
+        };
+        assert!(matches!(
+            targets.target("vm"),
+            Err(WorkerError::UnsupportedProvider(message)) if message.contains("vm endpoint")
+        ));
+        targets.vm = Some(target("tadokoro")?);
+        let vm = targets.target("vm")?;
+        assert_eq!(vm.endpoint.as_str(), "http://tadokoro.example.test/");
+        let claims = vm
+            .signer
+            .sign(ProviderContext {
+                principal_id: PrincipalId(PrincipalContextId::from_u128(1)),
+                user_id: None,
+                organization_id: OrganizationId(PrincipalContextId::from_u128(2)),
+                project_id: ProjectId(PrincipalContextId::from_u128(3)),
+                service_instance_id: ServiceInstanceId(PrincipalContextId::from_u128(4)),
+                action: "service-instance.reconcile".into(),
+                generation: 1,
+            })?
+            .claims;
+        assert_eq!(claims.audience, "heterocloud-vm");
         Ok(())
     }
 

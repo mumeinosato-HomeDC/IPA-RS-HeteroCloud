@@ -72,6 +72,10 @@ pub struct Config {
     #[arg(long, env = "HETEROCLOUD_VPC_ENDPOINT")]
     pub vpc_endpoint: Option<Url>,
 
+    /// Internal endpoint of the Tadokoro VM provider. VM routes stay unavailable without it.
+    #[arg(long, env = "HETEROCLOUD_VM_ENDPOINT")]
+    pub vm_endpoint: Option<Url>,
+
     #[arg(
         long,
         env = "HETEROCLOUD_SYOUYU_INTERNAL_ENDPOINT",
@@ -361,6 +365,9 @@ impl Config {
         if let Some(endpoint) = &self.vpc_endpoint {
             validate_flash_internal_endpoint(endpoint)?;
         }
+        if let Some(endpoint) = &self.vm_endpoint {
+            validate_flash_internal_endpoint(endpoint)?;
+        }
         validate_syouyu_internal_endpoint(&self.syouyu_internal_endpoint)?;
         validate_registry_config(
             self.registry_internal_endpoint.as_ref(),
@@ -394,6 +401,9 @@ impl Config {
         validate_flow_internal_endpoint(&self.flow_internal_endpoint)?;
         validate_flash_internal_endpoint(&self.flash_internal_endpoint)?;
         if let Some(endpoint) = &self.vpc_endpoint {
+            validate_flash_internal_endpoint(endpoint)?;
+        }
+        if let Some(endpoint) = &self.vm_endpoint {
             validate_flash_internal_endpoint(endpoint)?;
         }
         validate_syouyu_internal_endpoint(&self.syouyu_internal_endpoint)?;

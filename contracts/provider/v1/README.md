@@ -1,7 +1,7 @@
 # Provider API v1
 
 HeteroCloud calls independently deployed service providers through a private
-Kubernetes endpoint. Provider API v1 supports `flow` and `flash` service
+Kubernetes endpoint. Provider API v1 supports `flow`, `flash` and `vm` service
 instances. Service-instance outbox events are routed by their immutable
 provider field.
 
@@ -9,6 +9,7 @@ provider field.
 | --- | --- | --- |
 | `flow` | `heterocloud-flow` | `HETEROCLOUD_FLOW_ENDPOINT` |
 | `flash` | `heterocloud-flash` | `HETEROCLOUD_FLASH_ENDPOINT` |
+| `vm` | `heterocloud-vm` | `HETEROCLOUD_VM_ENDPOINT` (optional) |
 
 Every request carries `Authorization: Bearer <JWT>`. The JWT is signed by the
 HeteroCloud provider key and contains:
@@ -129,3 +130,37 @@ desired state.
 Deletion is idempotent. Provider-owned rooms, queues, credentials, and usage
 state are retained or removed according to the provider retention policy;
 HeteroCloud owns only the management-plane instance record.
+
+## VM management API (Tadokoro, Proxmox VE)
+
+The `vm` provider is [HeteroCloud-Tadokoro](https://github.com/mumeinosato-HomeDC/HeteroCloud-Tadokoro).
+It is optional: without `HETEROCLOUD_VM_ENDPOINT` the worker leaves `vm` events
+queued with an "endpoint is not configured" error and VM status reads report the
+provider as unavailable.
+
+| Method | Route | IAM action | IAM resource |
+| --- | --- | --- | --- |
+| `GET` | `/api/v1/organizations/{organization_id}/vm/instances` | `vm:ListInstances` | `hc:org:{organization_id}:vm/*` |
+| `POST` | `/api/v1/organizations/{organization_id}/vm/instances` | `vm:CreateInstance` | `hc:org:{organization_id}:vm/*` |
+| `GET` | `/api/v1/organizations/{organization_id}/vm/instances/{id}` | `vm:GetInstance` | `hc:org:{organization_id}:vm/instance/{id}` |
+| `PUT` | `/api/v1/organizations/{organization_id}/vm/instances/{id}` | `vm:UpdateInstance` | `hc:org:{organization_id}:vm/instance/{id}` |
+| `DELETE` | `/api/v1/organizations/{organization_id}/vm/instances/{id}` | `vm:DeleteInstance` | `hc:org:{organization_id}:vm/instance/{id}` |
+
+```json
+{
+  "region": "heteronet-global",
+  "image": "ubuntu-26.04",
+  "cpu_cores": 2,
+  "memory_mib": 2048,
+  "disk_gib": 20,
+  "ssh_authorized_keys": ["ssh-ed25519 AAAA… me@host"],
+  "username": "ubuntu",
+  "stopped": false,
+  "metadata": {}
+}
+```
+
+Limits: 1..16 cores, 512..131072 MiB memory, 8..2048 GiB disk, 1..8 SSH keys.
+Unknown fields are rejected. Disks only grow and the image is fixed after creation;
+the provider enforces both. `GET` merges the provider's live status (address, power
+state) into `status`. The CLI is `heterocloud vm {create,get,list,update,delete}`.
