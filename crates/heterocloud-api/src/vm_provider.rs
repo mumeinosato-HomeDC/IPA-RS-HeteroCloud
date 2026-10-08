@@ -9,6 +9,7 @@ use serde_json::{Value, json};
 use url::Url;
 
 pub const VM_STATUS_ACTION: &str = "vm.status.get";
+pub const VM_SHELL_ACTION: &str = "vm.shell";
 
 pub struct VmProviderProxy {
     endpoint: Url,
@@ -23,6 +24,48 @@ impl VmProviderProxy {
             signer,
             client,
         }
+    }
+
+    /// Opens the provider's serial-console relay for a running VM.
+    pub async fn connect_shell(
+        &self,
+        principal: PrincipalId,
+        instance: &ServiceInstance,
+    ) -> Result<crate::flash_provider::ProviderWebSocket, Box<dyn std::error::Error + Send + Sync>>
+    {
+        use tokio_tungstenite::{connect_async, tungstenite::client::IntoClientRequest};
+        let token = self
+            .signer
+            .sign(ProviderContext {
+                principal_id: principal,
+                user_id: None,
+                organization_id: instance.organization_id,
+                project_id: instance.project_id,
+                service_instance_id: instance.id,
+                action: VM_SHELL_ACTION.into(),
+                generation: instance.generation,
+            })?
+            .token;
+        let mut url = self.endpoint.join(&format!(
+            "internal/v1/service-instances/{}/shell",
+            instance.id
+        ))?;
+        url.query_pairs_mut()
+            .append_pair("generation", &instance.generation.to_string());
+        let scheme = match url.scheme() {
+            "http" => "ws",
+            "https" => "wss",
+            _ => return Err("VM provider endpoint must be http or https".into()),
+        };
+        url.set_scheme(scheme)
+            .map_err(|()| "VM provider endpoint cannot carry a websocket")?;
+        let mut request = url.as_str().into_client_request()?;
+        request.headers_mut().insert(
+            http::header::AUTHORIZATION,
+            format!("Bearer {token}").parse()?,
+        );
+        let (socket, _) = connect_async(request).await?;
+        Ok(socket)
     }
 
     async fn status(

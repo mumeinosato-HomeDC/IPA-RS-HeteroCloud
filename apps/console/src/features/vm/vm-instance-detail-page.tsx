@@ -9,6 +9,7 @@ import Input from "@cloudscape-design/components/input";
 import KeyValuePairs from "@cloudscape-design/components/key-value-pairs";
 import Modal from "@cloudscape-design/components/modal";
 import SpaceBetween from "@cloudscape-design/components/space-between";
+import StatusIndicator, { type StatusIndicatorProps } from "@cloudscape-design/components/status-indicator";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -18,6 +19,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { PageLoading } from "@/components/shared/page-loading";
 import { RouterLink } from "@/components/shared/router-link";
 import { StatusBadge } from "@/components/shared/status-badge";
+import { FlashWebShell, type FlashShellConnectionState } from "@/features/flash/flash-web-shell";
 import { useActiveOrganization } from "@/features/organizations/organization-context";
 import { api, getApiErrorMessage } from "@/lib/api-client";
 import { projectsQueryOptions, vmInstanceQueryOptions, vpcsQueryOptions } from "@/lib/queries";
@@ -34,6 +36,13 @@ import {
   vmSpecFromForm,
 } from "./vm-utils";
 
+const shellStatuses: Record<FlashShellConnectionState, { type: StatusIndicatorProps.Type; label: string }> = {
+  connecting: { type: "loading", label: "接続中" },
+  connected: { type: "success", label: "接続済み" },
+  closed: { type: "stopped", label: "切断済み" },
+  error: { type: "error", label: "接続エラー" },
+};
+
 export function VmInstanceDetailPage() {
   const { vmId = "" } = useParams<{ vmId: string }>();
   const { activeOrganization } = useActiveOrganization();
@@ -46,6 +55,8 @@ export function VmInstanceDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [form, setForm] = useState<VmFormValue | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [shellSession, setShellSession] = useState(0);
+  const [shellState, setShellState] = useState<FlashShellConnectionState>("closed");
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
 
   const refresh = async () => {
@@ -225,6 +236,54 @@ export function VmInstanceDetailPage() {
             ]}
           />
         </ColumnLayout>
+      </Container>
+
+      <Container
+        header={
+          <Header
+            variant="h2"
+            description="シリアルコンソールに接続します。ネットワーク設定に関わらず利用できます。"
+            actions={
+              <SpaceBetween direction="horizontal" size="xs">
+                <StatusIndicator type={shellStatuses[shellState].type}>
+                  {shellStatuses[shellState].label}
+                </StatusIndicator>
+                <Button
+                  variant="primary"
+                  iconName="script"
+                  disabled={busy || stopped || status.power_state !== "running"}
+                  onClick={() => {
+                    setShellState("connecting");
+                    setShellSession((session) => session + 1);
+                  }}
+                >
+                  {shellSession > 0 ? "再接続" : "接続"}
+                </Button>
+                <Button
+                  disabled={shellSession === 0}
+                  onClick={() => {
+                    setShellSession(0);
+                    setShellState("closed");
+                  }}
+                >
+                  切断
+                </Button>
+              </SpaceBetween>
+            }
+          >
+            シェル
+          </Header>
+        }
+      >
+        {shellSession > 0 ? (
+          <FlashWebShell
+            key={shellSession}
+            url={api.vm.instances.shellWebSocketUrl(organizationId, vmId)}
+            onStateChange={setShellState}
+          />
+        ) : (
+          <Box color="text-status-inactive">仮想マシンが起動中のときに接続できます。</Box>
+        )}
       </Container>
 
       <Container header={<Header variant="h2">ネットワークとファイアウォール</Header>}>

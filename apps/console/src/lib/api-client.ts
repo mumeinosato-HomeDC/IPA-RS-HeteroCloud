@@ -753,6 +753,15 @@ export class HeteroCloudApiClient {
           organizationPath(organizationId, `vm/instances/${encodeURIComponent(vmId)}`),
           { method: "DELETE" },
         ),
+      shellWebSocketUrl: (organizationId: string, vmId: string) => {
+        const path = organizationPath(
+          organizationId,
+          `vm/instances/${encodeURIComponent(vmId)}/shell`,
+        );
+        const url = new URL(`${this.baseUrl}${path}`, window.location.href);
+        url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+        return url.toString();
+      },
     },
   };
 
