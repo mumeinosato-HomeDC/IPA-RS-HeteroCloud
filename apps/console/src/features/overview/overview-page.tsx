@@ -27,6 +27,7 @@ import {
   realtimeServicesQueryOptions,
   registryImagesQueryOptions,
   syouyuBucketsQueryOptions,
+  vmInstancesQueryOptions,
 } from "@/lib/queries";
 import { formatDateTime, formatNumber } from "@/lib/utils";
 
@@ -130,8 +131,9 @@ export function OverviewPage() {
   const registry = useQuery(registryImagesQueryOptions(organizationId));
   const flow = useQuery(realtimeServicesQueryOptions(organizationId));
   const syouyu = useQuery(syouyuBucketsQueryOptions(organizationId));
+  const vms = useQuery(vmInstancesQueryOptions(organizationId));
   const audit = useQuery(auditEventsQueryOptions(organizationId));
-  const queries = [flash, registry, flow, syouyu, audit];
+  const queries = [flash, registry, flow, syouyu, vms, audit];
 
   const recentServices = useMemo(
     () =>
@@ -241,6 +243,14 @@ export function OverviewPage() {
             error={flow.isError}
             value={flowItems.length}
             detail={`${readyFlow}件が準備完了`}
+          />
+          <ResourceStatus
+            name="仮想マシン"
+            href="/vm/instances"
+            pending={vms.isPending}
+            error={vms.isError}
+            value={vms.data?.items.length}
+            detail="インスタンス"
           />
           <ResourceStatus
             name="Syouyu"

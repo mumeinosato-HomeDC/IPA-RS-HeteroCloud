@@ -32,6 +32,7 @@ function routeTitle(pathname: string) {
   if (pathname.startsWith("/flow/services/")) return "Flowサービス詳細";
   if (pathname.startsWith("/flash/services/")) return "Flashサービス詳細";
   if (pathname.startsWith("/syouyu/buckets/")) return "Syouyuバケット詳細";
+  if (pathname.startsWith("/vm/instances/")) return "仮想マシン詳細";
   return routeTitles[pathname] ?? "HeteroCloud";
 }
 
@@ -56,6 +57,8 @@ function breadcrumbs(pathname: string, ownerConsole: boolean) {
     items.push({ text: "Flash", href: "/flash/services" });
   } else if (pathname === "/cost-management") {
     items.push({ text: "Flash", href: "/flash/services" });
+  } else if (pathname.startsWith("/vm/")) {
+    items.push({ text: "仮想マシン", href: "/vm/instances" });
   } else if (pathname.startsWith("/syouyu/")) {
     items.push({ text: "Syouyu", href: "/syouyu/buckets" });
   } else if (pathname.startsWith("/owner/")) {

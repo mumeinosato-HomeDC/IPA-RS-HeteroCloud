@@ -314,3 +314,19 @@ export function auditEventsQueryOptions(organizationId: string) {
 export function vpcsQueryOptions(organizationId: string) {
   return queryOptions({queryKey:["organizations",organizationId,"vpc","networks"],queryFn:({signal}) => api.vpc.list(organizationId,signal),refetchInterval:5000});
 }
+
+export function vmInstancesQueryOptions(organizationId: string) {
+  return queryOptions({
+    queryKey: ["organizations", organizationId, "vm", "instances"],
+    queryFn: ({ signal }) => api.vm.instances.list(organizationId, signal),
+    refetchInterval: 5000,
+  });
+}
+
+export function vmInstanceQueryOptions(organizationId: string, vmId: string) {
+  return queryOptions({
+    queryKey: ["organizations", organizationId, "vm", "instances", vmId],
+    queryFn: ({ signal }) => api.vm.instances.get(organizationId, vmId, signal),
+    refetchInterval: 5000,
+  });
+}

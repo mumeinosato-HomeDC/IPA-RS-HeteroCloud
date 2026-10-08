@@ -132,6 +132,9 @@ async function mockApi(page: Page) {
     if (path === `/organizations/${organizationId}/registry/images`) {
       return json(route, { items: [] });
     }
+    if (path === `/organizations/${organizationId}/vm/instances`) {
+      return json(route, { items: [] });
+    }
     if (path === `/organizations/${organizationId}/syouyu/buckets`) {
       return json(route, { items: [] });
     }
