@@ -21,6 +21,10 @@ pub struct VpcSpec {
     pub security_groups: Vec<String>,
     #[serde(default)]
     pub rules: Vec<VpcRule>,
+    /// Let virtual machines of this VPC reach its Flash members (and the other
+    /// way round) through the VM network. Off by default.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub vm_access: bool,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
