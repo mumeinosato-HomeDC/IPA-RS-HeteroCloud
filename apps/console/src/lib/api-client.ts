@@ -13,6 +13,7 @@ import type {
   CreateRealtimeServiceRequest,
   CreateServiceAccountRequest,
   CreateSyouyuBucketRequest,
+  CreateVmRequest,
   CreateSyouyuCredentialRequest,
   ErrorEnvelope,
   FlashCostManagement,
@@ -51,6 +52,8 @@ import type {
   SyouyuQuotaLimits,
   SyouyuUsage,
   UpdateSyouyuBucketRequest,
+  UpdateVmRequest,
+  VmInstance,
   UpdateOwnerGpuAccessRequest,
   UpdateRealtimeServiceRequest,
   UpdateFlashServiceRequest,
@@ -720,6 +723,36 @@ export class HeteroCloudApiClient {
         url.searchParams.set("pod", pod);
         return url.toString();
       },
+    },
+  };
+
+  readonly vm = {
+    instances: {
+      list: (organizationId: string, signal?: AbortSignal) =>
+        this.request<CollectionResponse<VmInstance>>(
+          organizationPath(organizationId, "vm/instances"),
+          { signal },
+        ),
+      create: (organizationId: string, input: CreateVmRequest) =>
+        this.request<VmInstance>(
+          organizationPath(organizationId, "vm/instances"),
+          { method: "POST", body: input },
+        ),
+      get: (organizationId: string, vmId: string, signal?: AbortSignal) =>
+        this.request<VmInstance>(
+          organizationPath(organizationId, `vm/instances/${encodeURIComponent(vmId)}`),
+          { signal },
+        ),
+      update: (organizationId: string, vmId: string, input: UpdateVmRequest) =>
+        this.request<VmInstance>(
+          organizationPath(organizationId, `vm/instances/${encodeURIComponent(vmId)}`),
+          { method: "PUT", body: input },
+        ),
+      delete: (organizationId: string, vmId: string) =>
+        this.request<VmInstance>(
+          organizationPath(organizationId, `vm/instances/${encodeURIComponent(vmId)}`),
+          { method: "DELETE" },
+        ),
     },
   };
 

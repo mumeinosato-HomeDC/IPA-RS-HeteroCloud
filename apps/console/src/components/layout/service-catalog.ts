@@ -1,7 +1,7 @@
 export type ServiceGroup = "Flash" | "プラットフォーム";
 
 export interface ConsoleService {
-  id: "flash" | "flash-registry" | "flow" | "syouyu";
+  id: "flash" | "flash-registry" | "flow" | "syouyu" | "vm";
   name: string;
   shortName: string;
   description: string;
@@ -28,6 +28,15 @@ export const consoleServices: ConsoleService[] = [
     group: "Flash",
     href: "/registry",
     keywords: ["registry", "image", "artifact", "イメージ"],
+  },
+  {
+    id: "vm",
+    name: "仮想マシン",
+    shortName: "仮想サーバー",
+    description: "SSHで接続できる仮想マシンを作成し、VPCやファイアウォールで通信を制御します。",
+    group: "プラットフォーム",
+    href: "/vm/instances",
+    keywords: ["vm", "server", "compute", "proxmox", "仮想", "サーバー"],
   },
   {
     id: "flow",

@@ -70,6 +70,16 @@ const RegistryPage = lazy(() =>
     default: module.RegistryPage,
   })),
 );
+const VmInstancesPage = lazy(() =>
+  import("@/features/vm/vm-instances-page").then((module) => ({
+    default: module.VmInstancesPage,
+  })),
+);
+const VmInstanceDetailPage = lazy(() =>
+  import("@/features/vm/vm-instance-detail-page").then((module) => ({
+    default: module.VmInstanceDetailPage,
+  })),
+);
 const SyouyuBucketsPage = lazy(() =>
   import("@/features/syouyu/syouyu-buckets-page").then((module) => ({
     default: module.SyouyuBucketsPage,
@@ -264,6 +274,22 @@ export function App() {
                 element={
                   <LazyPage>
                     <CostManagementPage />
+                  </LazyPage>
+                }
+              />
+              <Route
+                path="/vm/instances"
+                element={
+                  <LazyPage>
+                    <VmInstancesPage />
+                  </LazyPage>
+                }
+              />
+              <Route
+                path="/vm/instances/:vmId"
+                element={
+                  <LazyPage>
+                    <VmInstanceDetailPage />
                   </LazyPage>
                 }
               />

@@ -758,7 +758,7 @@ export interface ErrorEnvelope {
 export interface FlashVpcAttachment { vpc_id: string; security_groups: string[]; private_name?: string; }
 export type VpcPeer = {type: "security_group"; name: string} | {type: "service"; service_id: string} | {type: "all"};
 export interface VpcRule { description: string; source: VpcPeer; destination: VpcPeer; protocol: "tcp" | "udp"; port: number; end_port?: number; }
-export interface VpcSpec { region: string; description: string; nat: {enabled: boolean}; security_groups: string[]; rules: VpcRule[]; }
+export interface VpcSpec { region: string; description: string; nat: {enabled: boolean}; security_groups: string[]; rules: VpcRule[]; vm_access?: boolean; }
 export interface VpcNetwork { id: string; organization_id: string; project_id: string; provider: "vpc"; name: string; generation: number; state: ServiceState; spec: VpcSpec; status: {observation?: string; status?: {phase?: string; dns_suffix?: string; nat_gateway_node?: string; message?: string}}; created_at: string; updated_at: string; }
 
 export interface FlashDomain {
@@ -770,4 +770,82 @@ export interface FlashDomain {
   oidc_callback_url: string;
   certificate_expires_at?: string | null;
   message?: string | null;
+}
+
+export type VmEgressMode = "internet" | "restricted" | "disabled";
+export type VmProtocol = "tcp" | "udp" | "icmp";
+
+export interface VmIngressRule {
+  protocol: VmProtocol;
+  /** `22` or `8000-8100`; required for tcp/udp, absent for icmp. */
+  ports?: string | null;
+  source_cidrs: string[];
+}
+
+export interface VmNetwork {
+  vpc_id?: string | null;
+  ingress: VmIngressRule[];
+  egress: {
+    mode: VmEgressMode;
+    allowed_destination_cidrs: string[];
+    denied_destination_cidrs: string[];
+  };
+}
+
+export interface VmSpec {
+  region: string;
+  image: string;
+  cpu_cores: number;
+  memory_mib: number;
+  disk_gib: number;
+  ssh_authorized_keys: string[];
+  username: string;
+  stopped: boolean;
+  network: VmNetwork;
+  metadata: Record<string, unknown>;
+}
+
+/** What the VM provider (Tadokoro) reports; present once the VM is configured. */
+export interface VmProviderStatus {
+  phase?: string;
+  message?: string;
+  vmid?: number;
+  node?: string;
+  hostname?: string;
+  ip_address?: string | null;
+  power_state?: string;
+  image?: string;
+  cpu_cores?: number;
+  memory_mib?: number;
+  disk_gib?: number;
+  username?: string;
+  vpc_id?: string | null;
+  firewall?: string;
+  dns_names?: string[];
+}
+
+export interface VmInstance {
+  id: string;
+  organization_id: string;
+  project_id: string;
+  provider: "vm";
+  name: string;
+  generation: number;
+  state: ServiceState;
+  spec: VmSpec;
+  /** Live status is nested under `status` with `observation: "current"`; the stored one is flat. */
+  status: VmProviderStatus & { observation?: string; status?: VmProviderStatus };
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateVmRequest {
+  project_id: string;
+  name: string;
+  spec: VmSpec;
+}
+
+export interface UpdateVmRequest {
+  name: string;
+  spec: VmSpec;
 }
