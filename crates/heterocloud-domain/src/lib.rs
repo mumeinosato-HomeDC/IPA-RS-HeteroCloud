@@ -12,7 +12,7 @@ use uuid::Uuid;
 
 pub mod vm;
 pub mod vpc;
-pub use vm::{VM_REGION, VmSpec};
+pub use vm::{VM_REGION, VmEgress, VmEgressMode, VmIngressRule, VmNetwork, VmProtocol, VmSpec};
 pub use vpc::{FlashVpcAttachment, VpcNat, VpcPeer, VpcRule, VpcSpec};
 
 pub const POLICY_VERSION: &str = "2026-07-31";

@@ -2453,6 +2453,7 @@ async fn create_vm(
         &vm_resource(org, None),
     )
     .await?;
+    authorize_vm_vpc_attachment(&state, &actor, org, &request.spec).await?;
     let instance = state
         .store
         .create_service_instance(
@@ -2489,6 +2490,7 @@ async fn update_vm(
         &vm_resource(org, Some(id)),
     )
     .await?;
+    authorize_vm_vpc_attachment(&state, &actor, org, &request.spec).await?;
     let instance = state
         .store
         .update_service_instance(
@@ -2559,6 +2561,26 @@ async fn authorize_vpc_attachment(
             )
             .await?;
         }
+    }
+    Ok(())
+}
+
+/// Joining a VPC needs permission on that VPC, just like attaching Flash services.
+async fn authorize_vm_vpc_attachment(
+    state: &AppState,
+    actor: &AuthenticatedActor,
+    org: Uuid,
+    spec: &VmSpec,
+) -> Result<(), ApiError> {
+    if let Some(vpc_id) = spec.network.vpc_id {
+        authorize_actor(
+            state,
+            actor,
+            OrganizationId(org),
+            "vpc:AttachInstance",
+            &vpc_resource(org, Some(vpc_id)),
+        )
+        .await?;
     }
     Ok(())
 }
