@@ -2,6 +2,11 @@ replicaCount: 3
 hostNetwork: true
 # Pod-local hostname mappings shared by the API and owner console (not workers).
 hostAliases: []
+# Extra environment, volumes and mounts for the API container (e.g. SSL_CERT_FILE
+# plus a CA bundle when the Secret Manager uses a private CA).
+extraEnv: []
+extraVolumes: []
+extraVolumeMounts: []
 
 image:
   repository: ghcr.io/ipa-cyberlab/ipa-rs-heterocloud
