@@ -184,6 +184,9 @@ export class HeteroCloudApiClient {
         credentials: "include",
         // The browser owns the Origin header and emits it for same-origin POSTs.
         mode: "same-origin",
+        // The server sends `Referrer-Policy: no-referrer`, and Firefox then emits `Origin: null`
+        // on same-origin POST/DELETE, which the Origin check rightly rejects.
+        referrerPolicy: "same-origin",
       });
     } catch {
       throw new ApiError("APIに接続できませんでした。接続状態を確認してください。", {
