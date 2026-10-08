@@ -166,7 +166,7 @@ export function VmInstancesPage() {
   return (
     <SpaceBetween size="l">
       <PageHeader
-        title="仮想マシン"
+        title="Tadokoro"
         description={`${activeOrganization.organization_name} の仮想マシン（Proxmox VE）を管理します。`}
         actions={
           <SpaceBetween direction="horizontal" size="xs">

@@ -245,7 +245,7 @@ export function OverviewPage() {
             detail={`${readyFlow}件が準備完了`}
           />
           <ResourceStatus
-            name="仮想マシン"
+            name="Tadokoro"
             href="/vm/instances"
             pending={vms.isPending}
             error={vms.isError}

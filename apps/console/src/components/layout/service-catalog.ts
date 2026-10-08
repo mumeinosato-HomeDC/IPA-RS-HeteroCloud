@@ -31,8 +31,8 @@ export const consoleServices: ConsoleService[] = [
   },
   {
     id: "vm",
-    name: "仮想マシン",
-    shortName: "仮想サーバー",
+    name: "Tadokoro",
+    shortName: "仮想マシン",
     description: "SSHで接続できる仮想マシンを作成し、VPCやファイアウォールで通信を制御します。",
     group: "プラットフォーム",
     href: "/vm/instances",
