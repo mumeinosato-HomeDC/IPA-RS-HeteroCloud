@@ -55,7 +55,7 @@ export function VpcPage() {
   if (networks.isPending) return <PageLoading />;
   if (networks.isError) return <ErrorState description={getApiErrorMessage(networks.error)} />;
   return <SpaceBetween size="l">
-    <PageHeader title="VPC" description="Flashサービス間のプライベート通信と、外部へのNATを管理します。" actions={<Button formAction="none" variant="primary" onClick={() => open("new")}>VPCを作成</Button>} />
+    <PageHeader title="VPC" description="FlashサービスおよびVM間のプライベート通信と、外部へのNATを管理します。" actions={<Button formAction="none" variant="primary" onClick={() => open("new")}>VPCを作成</Button>} />
     <Alert type="info">VPC内の通信は許可ルールが必要です。NATは外向きの接続専用で、サービスを外部へ公開しません。</Alert>
     {networks.data.items.length === 0 && <Box>VPCがありません。</Box>}
     {networks.data.items.map(v => {
