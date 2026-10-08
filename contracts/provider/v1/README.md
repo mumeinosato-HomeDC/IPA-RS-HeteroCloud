@@ -156,9 +156,25 @@ provider as unavailable.
   "ssh_authorized_keys": ["ssh-ed25519 AAAA… me@host"],
   "username": "ubuntu",
   "stopped": false,
+  "network": {
+    "vpc_id": "018f…",
+    "ingress": [{"protocol": "tcp", "ports": "22", "source_cidrs": ["10.0.128.0/24"]}],
+    "egress": {"mode": "internet"}
+  },
   "metadata": {}
 }
 ```
+
+`network` (all optional) controls the per-VM firewall. Every VM is default-deny:
+
+* `vpc_id` – VMs with the same VPC reach each other in both directions. The VPC must
+  exist in the same organization and project and have the VM's region; joining needs
+  `vpc:AttachInstance` on `hc:org:{organization_id}:vpc/network/{vpc_id}`, and a VPC
+  with VMs (or Flash services) in it cannot be deleted.
+* `ingress[]` – `tcp`/`udp` (`ports`: `22` or `8000-8100`) or `icmp` from IPv4 CIDRs; default none.
+* `egress.mode` – `internet` (default; private ranges stay blocked), `restricted`
+  (only `allowed_destination_cidrs`, which may not overlap private ranges) or `disabled`;
+  `denied_destination_cidrs` always wins. DNS to the platform resolver always works.
 
 Limits: 1..16 cores, 512..131072 MiB memory, 8..2048 GiB disk, 1..8 SSH keys.
 Unknown fields are rejected. Disks only grow and the image is fixed after creation;

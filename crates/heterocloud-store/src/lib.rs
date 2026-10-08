@@ -10,8 +10,8 @@ use heterocloud_domain::{
     FlashExposureType, FlashProtocol, FlashSpec, FlowSpec, IamPolicy, MAX_FLASH_SERVICE_PORT,
     MIN_FLASH_SERVICE_PORT, Organization, OrganizationId, PolicyDocument, PolicyId, Principal,
     PrincipalId, PrincipalKind, Project, ProjectId, ResourceQuotaLimits, ServiceInstance,
-    ServiceInstanceId, ServiceState, SyouyuSpec, User, UserId, UserStatus, VpcPeer, VpcSpec,
-    valid_flash_gpu_type,
+    ServiceInstanceId, ServiceState, SyouyuSpec, User, UserId, UserStatus, VmSpec, VpcPeer,
+    VpcSpec, valid_flash_gpu_type,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -2693,6 +2693,10 @@ impl Store {
                 )
                 .await
             }
+            "vm" => {
+                lock_tenant_allocations(&mut transaction, organization_id).await?;
+                prepare_vm_spec(&mut transaction, organization_id, project_id, spec).await
+            }
             _ => Ok(spec),
         };
         let spec = match prepared {
@@ -2764,7 +2768,7 @@ impl Store {
         spec: Value,
     ) -> Result<ServiceInstance, StoreError> {
         let mut transaction = self.pool.begin().await?;
-        if matches!(provider, "flow" | "flash" | "syouyu" | "vpc") {
+        if matches!(provider, "flow" | "flash" | "syouyu" | "vpc" | "vm") {
             lock_tenant_allocations(&mut transaction, organization_id).await?;
         }
         if provider == "flash" {
@@ -2826,6 +2830,15 @@ impl Store {
                     id,
                     spec,
                     false,
+                )
+                .await
+            }
+            "vm" => {
+                prepare_vm_spec(
+                    &mut transaction,
+                    organization_id,
+                    ProjectId(existing.project_id),
+                    spec,
                 )
                 .await
             }
@@ -3035,7 +3048,7 @@ impl Store {
         if provider == "vpc" {
             let in_use: bool = sqlx::query_scalar(
                 "SELECT EXISTS (SELECT 1 FROM service_instances WHERE organization_id = $1
-                 AND provider = 'flash' AND spec #>> '{network,vpc_id}' = $2)",
+                 AND provider IN ('flash', 'vm') AND spec #>> '{network,vpc_id}' = $2)",
             )
             .bind(organization_id.0)
             .bind(id.to_string())
@@ -3043,7 +3056,8 @@ impl Store {
             .await?;
             if in_use {
                 return Err(StoreError::RequestRejected(
-                    "VPC is still attached to Flash services; detach or delete them first".into(),
+                    "VPC is still attached to Flash services or VMs; detach or delete them first"
+                        .into(),
                 ));
             }
         }
@@ -3788,6 +3802,51 @@ async fn validate_vpc_attachment(
         ));
     }
     Ok(())
+}
+
+/// Validates a VM spec and, when it joins a VPC, that the VPC belongs to the same
+/// organization and project, is not being deleted and matches the VM's region.
+/// Returns the normalized spec (defaults filled in).
+async fn prepare_vm_spec(
+    tx: &mut Transaction<'_, Postgres>,
+    org: OrganizationId,
+    project: ProjectId,
+    spec: Value,
+) -> Result<Value, StoreError> {
+    let vm: VmSpec =
+        serde_json::from_value(spec).map_err(|e| StoreError::RequestRejected(e.to_string()))?;
+    vm.validate()
+        .map_err(|e| StoreError::RequestRejected(e.to_string()))?;
+    let normalized = serde_json::to_value(&vm)
+        .map_err(|_| StoreError::Invariant("could not serialize VM specification"))?;
+    let Some(vpc_id) = vm.network.vpc_id else {
+        return Ok(normalized);
+    };
+    let row: Option<(Value, String)> = sqlx::query_as(
+        "SELECT spec, state FROM service_instances WHERE id = $1 AND organization_id = $2
+         AND project_id = $3 AND provider = 'vpc' FOR SHARE",
+    )
+    .bind(vpc_id)
+    .bind(org.0)
+    .bind(project.0)
+    .fetch_optional(&mut **tx)
+    .await?;
+    let Some((vpc_spec, state)) = row else {
+        return Err(StoreError::RequestRejected(
+            "VPC must belong to this organization and project".into(),
+        ));
+    };
+    if state == "deleting" {
+        return Err(StoreError::Conflict);
+    }
+    let vpc: VpcSpec = serde_json::from_value(vpc_spec)
+        .map_err(|_| StoreError::Invariant("invalid VPC specification"))?;
+    if vpc.region != vm.region {
+        return Err(StoreError::RequestRejected(
+            "VPC region must match the VM region".into(),
+        ));
+    }
+    Ok(normalized)
 }
 
 async fn prepare_vpc_spec(
