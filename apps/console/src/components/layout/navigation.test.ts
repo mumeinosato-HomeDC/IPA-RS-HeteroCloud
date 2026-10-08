@@ -32,7 +32,7 @@ describe("navigationItems", () => {
     expect(JSON.stringify(items)).toContain("Syouyu");
     expect(JSON.stringify(items)).toContain("/syouyu/buckets");
     expect(JSON.stringify(items)).toContain("/vm/instances");
-    expect(JSON.stringify(items)).toContain("仮想マシン");
+    expect(JSON.stringify(items)).toContain("Tadokoro");
     expect(JSON.stringify(items)).toContain("/cli");
     expect(JSON.stringify(items)).toContain("CLIセットアップ");
     expect(JSON.stringify(items)).not.toContain("全アカウント管理");
