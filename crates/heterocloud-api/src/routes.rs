@@ -27,7 +27,7 @@ use heterocloud_domain::{
     FlowSpec, MAX_FLOW_RATE_LIMIT_BURST, MAX_FLOW_RATE_LIMIT_REQUESTS_PER_SECOND, MAX_FLOW_ROOMS,
     Organization, OrganizationId, PolicyDocument, PolicyId, PrincipalId, ProjectId,
     ResourceQuotaLimits, ServiceInstance, ServiceInstanceId, ServiceState, SyouyuQuotaLimits,
-    SyouyuSpec, UserStatus, VpcSpec,
+    SyouyuSpec, UserStatus, VmSpec, VpcSpec,
 };
 use heterocloud_iam::{AuthorizationRequest, Decision, authorize, semantics_digest};
 use heterocloud_store::{
@@ -99,6 +99,7 @@ pub struct AppState {
     pub flow_client: reqwest::Client,
     pub flash_provider: Option<Arc<FlashProviderProxy>>,
     pub vpc_provider: Option<Arc<crate::vpc_provider::VpcProviderProxy>>,
+    pub vm_provider: Option<Arc<crate::vm_provider::VmProviderProxy>>,
     pub syouyu_provider: Option<Arc<SyouyuProviderProxy>>,
     pub registry: Option<Arc<RegistryClient>>,
     pub registration_limiter: Arc<Semaphore>,
@@ -187,6 +188,14 @@ pub fn api_router(state: Arc<AppState>) -> Router {
             get(get_realtime_service)
                 .patch(update_realtime_service)
                 .delete(delete_realtime_service),
+        )
+        .route(
+            "/organizations/{organization_id}/vm/instances",
+            get(list_vms).post(create_vm),
+        )
+        .route(
+            "/organizations/{organization_id}/vm/instances/{vm_id}",
+            get(get_vm).put(update_vm).delete(delete_vm),
         )
         .route(
             "/organizations/{organization_id}/vpc/networks",
@@ -2329,6 +2338,198 @@ async fn get_flash_usage(
         current,
         services,
     }))
+}
+
+fn vm_resource(org: Uuid, id: Option<Uuid>) -> String {
+    organization_resource(
+        org,
+        &id.map_or_else(|| "vm/*".into(), |id| format!("vm/instance/{id}")),
+    )
+}
+
+async fn list_vms(
+    State(state): State<Arc<AppState>>,
+    Path(org): Path<Uuid>,
+    Query(query): Query<FlashListQuery>,
+    headers: HeaderMap,
+    jar: CookieJar,
+) -> Result<Json<Value>, ApiError> {
+    let actor = authenticated_actor(&state, &headers, &jar).await?;
+    let authorization = authorize_actor(
+        &state,
+        &actor,
+        OrganizationId(org),
+        "vm:ListInstances",
+        &vm_resource(org, None),
+    )
+    .await?;
+    let items = state
+        .store
+        .list_service_instances(
+            OrganizationId(org),
+            query.project_id.map(ProjectId),
+            Some("vm"),
+        )
+        .await
+        .map_err(ApiError::from_store)?;
+    let items = crate::vm_provider::refresh_many(
+        state.vm_provider.as_deref(),
+        authorization.principal_id,
+        items,
+    )
+    .await;
+    Ok(Json(json!({"items": items})))
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CreateVm {
+    project_id: Uuid,
+    name: String,
+    spec: VmSpec,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct UpdateVm {
+    name: String,
+    spec: VmSpec,
+}
+
+async fn vm_instance(state: &AppState, org: Uuid, id: Uuid) -> Result<ServiceInstance, ApiError> {
+    state
+        .store
+        .service_instance(ServiceInstanceId(id))
+        .await
+        .map_err(ApiError::from_store)?
+        .filter(|i| i.organization_id == OrganizationId(org) && i.provider == "vm")
+        .ok_or(ApiError::NotFound)
+}
+
+async fn get_vm(
+    State(state): State<Arc<AppState>>,
+    Path((org, id)): Path<(Uuid, Uuid)>,
+    headers: HeaderMap,
+    jar: CookieJar,
+) -> Result<Json<ServiceInstance>, ApiError> {
+    let actor = authenticated_actor(&state, &headers, &jar).await?;
+    let authorization = authorize_actor(
+        &state,
+        &actor,
+        OrganizationId(org),
+        "vm:GetInstance",
+        &vm_resource(org, Some(id)),
+    )
+    .await?;
+    let instance = vm_instance(&state, org, id).await?;
+    Ok(Json(
+        crate::vm_provider::refresh(
+            state.vm_provider.as_deref(),
+            authorization.principal_id,
+            instance,
+        )
+        .await,
+    ))
+}
+
+async fn create_vm(
+    State(state): State<Arc<AppState>>,
+    Path(org): Path<Uuid>,
+    headers: HeaderMap,
+    jar: CookieJar,
+    Json(request): Json<CreateVm>,
+) -> Result<impl IntoResponse, ApiError> {
+    let actor = authenticated_actor_mutation(&state, &headers, &jar).await?;
+    validate_name(&request.name)?;
+    request
+        .spec
+        .validate()
+        .map_err(|e| ApiError::BadRequest(e.to_string()))?;
+    let auth = authorize_actor(
+        &state,
+        &actor,
+        OrganizationId(org),
+        "vm:CreateInstance",
+        &vm_resource(org, None),
+    )
+    .await?;
+    let instance = state
+        .store
+        .create_service_instance(
+            OrganizationId(org),
+            ProjectId(request.project_id),
+            auth.principal_id,
+            "vm",
+            &request.name,
+            serde_json::to_value(request.spec).map_err(|_| ApiError::Internal)?,
+        )
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok((StatusCode::ACCEPTED, Json(instance)))
+}
+
+async fn update_vm(
+    State(state): State<Arc<AppState>>,
+    Path((org, id)): Path<(Uuid, Uuid)>,
+    headers: HeaderMap,
+    jar: CookieJar,
+    Json(request): Json<UpdateVm>,
+) -> Result<impl IntoResponse, ApiError> {
+    let actor = authenticated_actor_mutation(&state, &headers, &jar).await?;
+    validate_name(&request.name)?;
+    request
+        .spec
+        .validate()
+        .map_err(|e| ApiError::BadRequest(e.to_string()))?;
+    let auth = authorize_actor(
+        &state,
+        &actor,
+        OrganizationId(org),
+        "vm:UpdateInstance",
+        &vm_resource(org, Some(id)),
+    )
+    .await?;
+    let instance = state
+        .store
+        .update_service_instance(
+            OrganizationId(org),
+            ServiceInstanceId(id),
+            "vm",
+            auth.principal_id,
+            &request.name,
+            serde_json::to_value(request.spec).map_err(|_| ApiError::Internal)?,
+        )
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok((StatusCode::ACCEPTED, Json(instance)))
+}
+
+async fn delete_vm(
+    State(state): State<Arc<AppState>>,
+    Path((org, id)): Path<(Uuid, Uuid)>,
+    headers: HeaderMap,
+    jar: CookieJar,
+) -> Result<impl IntoResponse, ApiError> {
+    let actor = authenticated_actor_mutation(&state, &headers, &jar).await?;
+    let auth = authorize_actor(
+        &state,
+        &actor,
+        OrganizationId(org),
+        "vm:DeleteInstance",
+        &vm_resource(org, Some(id)),
+    )
+    .await?;
+    let instance = state
+        .store
+        .begin_delete_service_instance(
+            OrganizationId(org),
+            ServiceInstanceId(id),
+            "vm",
+            auth.principal_id,
+        )
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok((StatusCode::ACCEPTED, Json(instance)))
 }
 
 fn vpc_resource(org: Uuid, id: Option<Uuid>) -> String {

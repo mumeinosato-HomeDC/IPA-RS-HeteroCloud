@@ -93,6 +93,9 @@ spec:
             {{- if .Values.worker.vpcEndpoint }}
             - --vpc-endpoint={{ .Values.worker.vpcEndpoint }}
             {{- end }}
+            {{- if .Values.worker.vmEndpoint }}
+            - --vm-endpoint={{ .Values.worker.vmEndpoint }}
+            {{- end }}
             - --syouyu-internal-endpoint={{ required "syouyu.internalEndpoint is required" .Values.syouyu.internalEndpoint }}
             - --syouyu-access-secret-file=/var/run/secrets/syouyu-access/hmac-secret
             - --syouyu-access-issuer={{ required "syouyu.accessIssuer is required" .Values.syouyu.accessIssuer }}

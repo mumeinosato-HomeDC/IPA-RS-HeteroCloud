@@ -141,6 +141,7 @@ async fn custom_domains_enforce_iam_csrf_scope_and_leave_workload_generation_unc
         flow_client: reqwest::Client::builder().no_proxy().build()?,
         flash_provider: None,
         vpc_provider: None,
+        vm_provider: None,
         syouyu_provider: None,
         registry: None,
         registration_limiter: Arc::new(Semaphore::new(2)),

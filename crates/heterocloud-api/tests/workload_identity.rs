@@ -142,6 +142,7 @@ async fn task_iam_is_scoped_revocable_and_cli_oauth_can_manage_iam() -> Result<(
         flow_client: reqwest::Client::builder().no_proxy().build()?,
         flash_provider: None,
         vpc_provider: None,
+        vm_provider: None,
         syouyu_provider: None,
         registry: None,
         registration_limiter: Arc::new(Semaphore::new(2)),

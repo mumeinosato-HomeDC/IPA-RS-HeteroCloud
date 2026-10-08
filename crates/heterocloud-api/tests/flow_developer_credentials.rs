@@ -471,6 +471,7 @@ async fn test_state() -> Result<
             .build()?,
         flash_provider: None,
         vpc_provider: None,
+        vm_provider: None,
         syouyu_provider: None,
         registry: None,
         registration_limiter: Arc::new(Semaphore::new(2)),

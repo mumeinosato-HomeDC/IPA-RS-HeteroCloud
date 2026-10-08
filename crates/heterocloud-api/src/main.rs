@@ -81,6 +81,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             })
         })
         .transpose()?;
+    let vm_provider = config
+        .vm_endpoint
+        .clone()
+        .map(|endpoint| {
+            ProviderSigner::from_ed25519_pem(
+                &config.provider_issuer,
+                "heterocloud-vm",
+                &config.provider_key_id,
+                secrets.provider_signing_key.expose_secret().as_bytes(),
+            )
+            .map(|signer| {
+                Arc::new(heterocloud_api::vm_provider::VmProviderProxy::new(
+                    endpoint,
+                    signer,
+                    provider_client.clone(),
+                ))
+            })
+        })
+        .transpose()?;
     let flash_provider = FlashProviderProxy::new(
         config.flash_internal_endpoint.clone(),
         flash_provider_signer,
@@ -124,6 +143,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         flow_client: provider_client,
         flash_provider: Some(Arc::new(flash_provider)),
         vpc_provider,
+        vm_provider,
         syouyu_provider: Some(Arc::new(syouyu_provider)),
         registry,
         registration_limiter: Arc::new(Semaphore::new(4)),

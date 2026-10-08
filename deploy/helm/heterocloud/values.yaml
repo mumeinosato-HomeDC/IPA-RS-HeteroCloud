@@ -73,6 +73,9 @@ worker:
   syouyuAudience: heterocloud-syouyu
   vpcEndpoint: ""
   vpcAudience: heterocloud-vpc
+  # Tadokoro (Proxmox VE virtual machines); empty disables the VM routes.
+  vmEndpoint: ""
+  vmAudience: heterocloud-vm
   providerKeyId: heterocloud-provider-1
   pollMilliseconds: 500
   databaseMaxConnections: 5

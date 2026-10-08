@@ -10,7 +10,9 @@ use serde_json::Value;
 use thiserror::Error;
 use uuid::Uuid;
 
+pub mod vm;
 pub mod vpc;
+pub use vm::{VM_REGION, VmSpec};
 pub use vpc::{FlashVpcAttachment, VpcNat, VpcPeer, VpcRule, VpcSpec};
 
 pub const POLICY_VERSION: &str = "2026-07-31";
@@ -1361,6 +1363,8 @@ pub struct ServiceInstance {
 pub enum DomainError {
     #[error("invalid VPC spec: {0}")]
     InvalidVpcSpec(String),
+    #[error("invalid VM spec: {0}")]
+    InvalidVmSpec(String),
     #[error("invalid resource quota: {0}")]
     InvalidResourceQuota(String),
 
