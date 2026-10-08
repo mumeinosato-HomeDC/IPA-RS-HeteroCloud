@@ -5725,26 +5725,34 @@ async fn authorize_actor(
 }
 
 fn require_same_origin(config: &RuntimeConfig, headers: &HeaderMap) -> Result<(), ApiError> {
-    let origin = headers
+    let Some(origin) = headers
         .get(header::ORIGIN)
         .and_then(|value| value.to_str().ok())
-        .ok_or(ApiError::Forbidden)?;
+    else {
+        tracing::warn!("rejected a request without an Origin header");
+        return Err(ApiError::Forbidden);
+    };
     if !config
         .allowed_origins
         .iter()
         .any(|allowed| allowed == origin)
     {
+        tracing::warn!(origin, "rejected a request from an origin that is not allowed");
         return Err(ApiError::Forbidden);
     }
     Ok(())
 }
 
 fn require_csrf(headers: &HeaderMap, expected: &SecretString) -> Result<(), ApiError> {
-    let supplied = headers
+    let Some(supplied) = headers
         .get(CSRF_HEADER)
         .and_then(|value| value.to_str().ok())
-        .ok_or(ApiError::Forbidden)?;
+    else {
+        tracing::warn!("rejected a request without a CSRF token");
+        return Err(ApiError::Forbidden);
+    };
     if !constant_time_token_eq(supplied, expected.expose_secret()) {
+        tracing::warn!("rejected a request whose CSRF token does not match the session");
         return Err(ApiError::Forbidden);
     }
     Ok(())
