@@ -10,6 +10,7 @@ use url::Url;
 
 pub const VM_STATUS_ACTION: &str = "vm.status.get";
 pub const VM_SHELL_ACTION: &str = "vm.shell";
+pub const VM_CONSOLE_ACTION: &str = "vm.console";
 
 pub struct VmProviderProxy {
     endpoint: Url,
@@ -33,6 +34,29 @@ impl VmProviderProxy {
         instance: &ServiceInstance,
     ) -> Result<crate::flash_provider::ProviderWebSocket, Box<dyn std::error::Error + Send + Sync>>
     {
+        self.connect(principal, instance, VM_SHELL_ACTION, "shell")
+            .await
+    }
+
+    /// Opens the provider's graphical (VNC) console relay for a running VM.
+    pub async fn connect_console(
+        &self,
+        principal: PrincipalId,
+        instance: &ServiceInstance,
+    ) -> Result<crate::flash_provider::ProviderWebSocket, Box<dyn std::error::Error + Send + Sync>>
+    {
+        self.connect(principal, instance, VM_CONSOLE_ACTION, "console")
+            .await
+    }
+
+    async fn connect(
+        &self,
+        principal: PrincipalId,
+        instance: &ServiceInstance,
+        action: &str,
+        path: &str,
+    ) -> Result<crate::flash_provider::ProviderWebSocket, Box<dyn std::error::Error + Send + Sync>>
+    {
         use tokio_tungstenite::{connect_async, tungstenite::client::IntoClientRequest};
         let token = self
             .signer
@@ -42,12 +66,12 @@ impl VmProviderProxy {
                 organization_id: instance.organization_id,
                 project_id: instance.project_id,
                 service_instance_id: instance.id,
-                action: VM_SHELL_ACTION.into(),
+                action: action.into(),
                 generation: instance.generation,
             })?
             .token;
         let mut url = self.endpoint.join(&format!(
-            "internal/v1/service-instances/{}/shell",
+            "internal/v1/service-instances/{}/{path}",
             instance.id
         ))?;
         url.query_pairs_mut()

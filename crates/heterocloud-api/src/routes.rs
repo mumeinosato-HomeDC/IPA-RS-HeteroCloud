@@ -202,6 +202,10 @@ pub fn api_router(state: Arc<AppState>) -> Router {
             get(shell_vm),
         )
         .route(
+            "/organizations/{organization_id}/vm/instances/{vm_id}/console",
+            get(console_vm),
+        )
+        .route(
             "/organizations/{organization_id}/vpc/networks",
             get(list_vpcs).post(create_vpc),
         )
@@ -2470,6 +2474,43 @@ async fn shell_vm(
         })?;
     Ok(upgrade
         .max_message_size(64 * 1024)
+        .on_upgrade(move |browser_socket| bridge_websockets(browser_socket, provider_socket)))
+}
+
+async fn console_vm(
+    State(state): State<Arc<AppState>>,
+    Path((org, id)): Path<(Uuid, Uuid)>,
+    headers: HeaderMap,
+    jar: CookieJar,
+    upgrade: WebSocketUpgrade,
+) -> Result<impl IntoResponse, ApiError> {
+    require_same_origin(&state.config, &headers)?;
+    let actor = authenticated_actor(&state, &headers, &jar).await?;
+    let authorization = authorize_actor(
+        &state,
+        &actor,
+        OrganizationId(org),
+        "vm:ExecInstance",
+        &vm_resource(org, Some(id)),
+    )
+    .await?;
+    let instance = vm_instance(&state, org, id).await?;
+    if instance.state == ServiceState::Deleting {
+        return Err(ApiError::ServiceInstanceNotReady);
+    }
+    let provider = state
+        .vm_provider
+        .as_ref()
+        .ok_or(ApiError::FlashProviderUnavailable)?;
+    let provider_socket = provider
+        .connect_console(authorization.principal_id, &instance)
+        .await
+        .map_err(|error| {
+            tracing::warn!(error = %error, "VM console connection failed");
+            ApiError::FlashProviderUnavailable
+        })?;
+    Ok(upgrade
+        .max_message_size(4 * 1024 * 1024)
         .on_upgrade(move |browser_socket| bridge_websockets(browser_socket, provider_socket)))
 }
 
