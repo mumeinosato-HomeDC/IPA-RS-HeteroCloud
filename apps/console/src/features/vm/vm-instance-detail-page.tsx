@@ -8,7 +8,6 @@ import Header from "@cloudscape-design/components/header";
 import Input from "@cloudscape-design/components/input";
 import KeyValuePairs from "@cloudscape-design/components/key-value-pairs";
 import Modal from "@cloudscape-design/components/modal";
-import SegmentedControl from "@cloudscape-design/components/segmented-control";
 import SpaceBetween from "@cloudscape-design/components/space-between";
 import StatusIndicator, { type StatusIndicatorProps } from "@cloudscape-design/components/status-indicator";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -20,7 +19,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { PageLoading } from "@/components/shared/page-loading";
 import { RouterLink } from "@/components/shared/router-link";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { FlashWebShell, type FlashShellConnectionState } from "@/features/flash/flash-web-shell";
+import type { FlashShellConnectionState } from "@/features/flash/flash-web-shell";
 import { useActiveOrganization } from "@/features/organizations/organization-context";
 import { api, getApiErrorMessage } from "@/lib/api-client";
 import { projectsQueryOptions, vmInstanceQueryOptions, vpcsQueryOptions } from "@/lib/queries";
@@ -58,7 +57,6 @@ export function VmInstanceDetailPage() {
   const [form, setForm] = useState<VmFormValue | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [shellSession, setShellSession] = useState(0);
-  const [consoleKind, setConsoleKind] = useState<"serial" | "screen">("serial");
   const [shellState, setShellState] = useState<FlashShellConnectionState>("closed");
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
 
@@ -245,21 +243,9 @@ export function VmInstanceDetailPage() {
         header={
           <Header
             variant="h2"
-            description="PVEのコンソールに接続します。ネットワーク設定に関わらず利用できます。"
+            description="PVEの画面コンソール(VNC)に接続します。ネットワーク設定に関わらず利用できます。"
             actions={
               <SpaceBetween direction="horizontal" size="xs">
-                <SegmentedControl
-                  selectedId={consoleKind}
-                  onChange={({ detail }) => {
-                    setConsoleKind(detail.selectedId as "serial" | "screen");
-                    setShellSession(0);
-                    setShellState("closed");
-                  }}
-                  options={[
-                    { id: "serial", text: "シリアル" },
-                    { id: "screen", text: "画面 (VNC)" },
-                  ]}
-                />
                 <StatusIndicator type={shellStatuses[shellState].type}>
                   {shellStatuses[shellState].label}
                 </StatusIndicator>
@@ -286,24 +272,16 @@ export function VmInstanceDetailPage() {
               </SpaceBetween>
             }
           >
-            シェル
+            コンソール
           </Header>
         }
       >
         {shellSession > 0 ? (
-          consoleKind === "serial" ? (
-            <FlashWebShell
-              key={`serial-${shellSession}`}
-              url={api.vm.instances.shellWebSocketUrl(organizationId, vmId)}
-              onStateChange={setShellState}
-            />
-          ) : (
-            <VmVncConsole
-              key={`screen-${shellSession}`}
-              url={api.vm.instances.consoleWebSocketUrl(organizationId, vmId)}
-              onStateChange={setShellState}
-            />
-          )
+          <VmVncConsole
+            key={shellSession}
+            url={api.vm.instances.consoleWebSocketUrl(organizationId, vmId)}
+            onStateChange={setShellState}
+          />
         ) : (
           <Box color="text-status-inactive">仮想マシンが起動中のときに接続できます。</Box>
         )}

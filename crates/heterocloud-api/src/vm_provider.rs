@@ -9,7 +9,6 @@ use serde_json::{Value, json};
 use url::Url;
 
 pub const VM_STATUS_ACTION: &str = "vm.status.get";
-pub const VM_SHELL_ACTION: &str = "vm.shell";
 pub const VM_CONSOLE_ACTION: &str = "vm.console";
 
 pub struct VmProviderProxy {
@@ -25,17 +24,6 @@ impl VmProviderProxy {
             signer,
             client,
         }
-    }
-
-    /// Opens the provider's serial-console relay for a running VM.
-    pub async fn connect_shell(
-        &self,
-        principal: PrincipalId,
-        instance: &ServiceInstance,
-    ) -> Result<crate::flash_provider::ProviderWebSocket, Box<dyn std::error::Error + Send + Sync>>
-    {
-        self.connect(principal, instance, VM_SHELL_ACTION, "shell")
-            .await
     }
 
     /// Opens the provider's graphical (VNC) console relay for a running VM.
