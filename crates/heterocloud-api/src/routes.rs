@@ -198,8 +198,8 @@ pub fn api_router(state: Arc<AppState>) -> Router {
             get(get_vm).put(update_vm).delete(delete_vm),
         )
         .route(
-            "/organizations/{organization_id}/vm/instances/{vm_id}/shell",
-            get(shell_vm),
+            "/organizations/{organization_id}/vm/instances/{vm_id}/console",
+            get(console_vm),
         )
         .route(
             "/organizations/{organization_id}/vpc/networks",
@@ -2436,7 +2436,7 @@ async fn get_vm(
     ))
 }
 
-async fn shell_vm(
+async fn console_vm(
     State(state): State<Arc<AppState>>,
     Path((org, id)): Path<(Uuid, Uuid)>,
     headers: HeaderMap,
@@ -2462,14 +2462,14 @@ async fn shell_vm(
         .as_ref()
         .ok_or(ApiError::FlashProviderUnavailable)?;
     let provider_socket = provider
-        .connect_shell(authorization.principal_id, &instance)
+        .connect_console(authorization.principal_id, &instance)
         .await
         .map_err(|error| {
-            tracing::warn!(error = %error, "VM shell connection failed");
+            tracing::warn!(error = %error, "VM console connection failed");
             ApiError::FlashProviderUnavailable
         })?;
     Ok(upgrade
-        .max_message_size(64 * 1024)
+        .max_message_size(4 * 1024 * 1024)
         .on_upgrade(move |browser_socket| bridge_websockets(browser_socket, provider_socket)))
 }
 

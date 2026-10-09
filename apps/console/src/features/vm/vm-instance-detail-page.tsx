@@ -19,12 +19,13 @@ import { PageHeader } from "@/components/shared/page-header";
 import { PageLoading } from "@/components/shared/page-loading";
 import { RouterLink } from "@/components/shared/router-link";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { FlashWebShell, type FlashShellConnectionState } from "@/features/flash/flash-web-shell";
+import type { FlashShellConnectionState } from "@/features/flash/flash-web-shell";
 import { useActiveOrganization } from "@/features/organizations/organization-context";
 import { api, getApiErrorMessage } from "@/lib/api-client";
 import { projectsQueryOptions, vmInstanceQueryOptions, vpcsQueryOptions } from "@/lib/queries";
 import { formatDateTime } from "@/lib/utils";
 import { VmForm } from "./vm-form";
+import { VmVncConsole } from "./vm-vnc-console";
 import {
   EGRESS_LABELS,
   formatMemory,
@@ -242,7 +243,7 @@ export function VmInstanceDetailPage() {
         header={
           <Header
             variant="h2"
-            description="シリアルコンソールに接続します。ネットワーク設定に関わらず利用できます。"
+            description="PVEの画面コンソール(VNC)に接続します。ネットワーク設定に関わらず利用できます。"
             actions={
               <SpaceBetween direction="horizontal" size="xs">
                 <StatusIndicator type={shellStatuses[shellState].type}>
@@ -271,14 +272,14 @@ export function VmInstanceDetailPage() {
               </SpaceBetween>
             }
           >
-            シェル
+            コンソール
           </Header>
         }
       >
         {shellSession > 0 ? (
-          <FlashWebShell
+          <VmVncConsole
             key={shellSession}
-            url={api.vm.instances.shellWebSocketUrl(organizationId, vmId)}
+            url={api.vm.instances.consoleWebSocketUrl(organizationId, vmId)}
             onStateChange={setShellState}
           />
         ) : (
